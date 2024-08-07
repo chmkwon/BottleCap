@@ -58,6 +58,7 @@ BOOL CBottleCapApp::InitInstance()
 		return FALSE;
 	}
 
+	int test;
 
 	AfxEnableControlContainer();
 
