@@ -12,6 +12,8 @@
 using namespace Pylon;
 using namespace GenApi;
 
+#define BUF_NUM   3
+
 class CCameraManager : public CImageEventHandler,
     public CConfigurationEventHandler
 {
@@ -56,6 +58,7 @@ public:
     int m_iCM_reSizeWidth;
 
     bool m_bCaptureEnd;
+
     bool m_bRemoveCamera;
 
     bool m_bCamOpenFlag;
@@ -65,22 +68,23 @@ public:
     long m_iGrabbedFrame;
 
     // ¸â¹ö ÇÔ¼ö
-    int FindCamera();
-    int OpenCamera();
-    int ConnectCamera();
-    int CloseCamera();
-
-    int SingleGrab();
-    int GrabLive();
-    int LiveStop();
-
     void WriteLog(CString strTemp, CString strTemp2);
+    bool CheckCaptureEnd();
+    void ReadEnd();
 
-    int SaveImage();
+    int FindCamera(CString& szCamName, CString& szCamSerialNumber, CString& szInterfacName);
+    int OpenCamera();
+    //int ConnectCamera();
+    //int CloseCamera();
 
-    static UINT LiveThread(void* lParam);
+    //int SingleGrab();
+    //int GrabLive();
+    //int LiveStop();
+    //int SaveImage();
 
-    virtual void OnImageGrabbed(CInstantCamera& camera, const CGrabResultPtr& ptrGrabResult);
-    virtual void OnImagesSkipped(CInstantCamera& camera, size_t countOfSkippedImages);
-    virtual void OnCameraDeviceRemoved(CInstantCamera& camera);
+    //static UINT LiveThread(void* lParam);
+
+    //virtual void OnImageGrabbed(CInstantCamera& camera, const CGrabResultPtr& ptrGrabResult);
+    //virtual void OnImagesSkipped(CInstantCamera& camera, size_t countOfSkippedImages);
+    //virtual void OnCameraDeviceRemoved(CInstantCamera& camera);
 };

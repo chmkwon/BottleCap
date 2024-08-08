@@ -12,6 +12,60 @@
 #define new DEBUG_NEW
 #endif
 
+CBottleCapDlg* pMainDlg;
+
+UINT LiveGrabThreadCam(LPVOID pParam)
+{
+	int nindex = 0;
+	int nCamIndex = *(int*)pParam;
+
+	QueryPerformanceCounter(&(pMainDlg->start));
+	pMainDlg->nFrameCount = 0;
+	CString Info;
+	while (pMainDlg->bStopThread == true)
+	{
+		if (pMainDlg->m_CameraManager.m_bRemoveCamera == true)
+		{
+			if (pMainDlg->m_strSerialNum == pMainDlg->m_ctrlCamList.GetItemText(0, 1))
+			{
+				pMainDlg->m_CameraManager.m_bRemoveCamera = false;
+				pMainDlg->m_ctrlCamList.SetItemText(0, 2, _T("LostConnection"));
+			}
+		}
+		else
+		{
+			if (pMainDlg->m_CameraManager.CheckCaptureEnd()) //exposure end true일때 
+			{
+				pMainDlg->nFrameCount++;
+				QueryPerformanceCounter(&(pMainDlg->end));
+				pMainDlg->m_CameraManager.ReadEnd();  // exposure end flag 변경 
+				pMainDlg->DisplayCam(pMainDlg->pImageresizeOrgBuffer[0]);
+				
+				nindex++;
+				if (nindex == BUF_NUM)
+				{
+					nindex = 0;
+				}
+				if (pMainDlg->end.QuadPart / (pMainDlg->freq.QuadPart / 1000.0) > pMainDlg->start.QuadPart / (pMainDlg->freq.QuadPart / 1000.0) + 1000)
+				{
+					CString temp;
+					temp.Format(_T("%d fps"), pMainDlg->nFrameCount);
+
+					pMainDlg->SetDlgItemText(CAMERA_STATS, temp);
+					pMainDlg->nFrameCount = 0;
+					QueryPerformanceCounter(&(pMainDlg->start));
+				}
+
+				Info.Format(_T("Grabbed Frame = %d , SkippedFrame = %d"), pMainDlg->m_CameraManager.m_iGrabbedFrame, pMainDlg->m_CameraManager.m_iSkippiedFrame);
+				
+				pMainDlg->SetDlgItemText(CAM_INFO, Info);
+			}
+		}
+		//   Sleep(1);
+	}
+
+	return 0;
+}
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
@@ -53,18 +107,41 @@ END_MESSAGE_MAP()
 CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_BOTTLECAP_DIALOG, pParent)
 {
+
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	 
+	bStopThread = false;
+	m_bSelectCamera = false;
+	/*for (int i = 0; i < CAM_NUM; i++)
+	{
+		pImageresizeOrgBuffer[i] = NULL;
+
+		pImageColorDestBuffer[i] = NULL;
+		bitmapinfo[i] = NULL;
+		bStopThread[i] = false;
+		nFrameCount[i] = 0;
+		time[i] = 0;
+		m_CameraManager.m_iCM_Width[i] = 1;
+		m_CameraManager.m_iCM_Height[i] = 1;
+		QueryPerformanceFrequency(&freq[i]);
+		m_nCamIndexBuf[i] = i;
+	}*/
 }
 
 void CBottleCapDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_CAMERA_LIST, m_ctrlCamList);
+	DDX_Control(pDX, IDC_LOG_LIST, m_ctrlLogList);
 }
 
 BEGIN_MESSAGE_MAP(CBottleCapDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_FIND_BUTTON, &CBottleCapDlg::OnBnClickedFindButton)
+	ON_NOTIFY(NM_CLICK, IDC_CAMERA_LIST, &CBottleCapDlg::OnNMClickCameraList)
+	ON_BN_CLICKED(IDC_OPEN_BUTTON, &CBottleCapDlg::OnBnClickedOpenButton)
 END_MESSAGE_MAP()
 
 
@@ -100,6 +177,28 @@ BOOL CBottleCapDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+
+	m_ctrlCamList.InsertColumn(0, _T("Model Name"), LVCFMT_CENTER, 103, -1);
+	m_ctrlCamList.InsertColumn(2, _T("Serial Num"), LVCFMT_CENTER, 100, -1);
+	m_ctrlCamList.InsertColumn(3, _T("Stats"), LVCFMT_CENTER, 140, -1);
+	m_ctrlCamList.SetExtendedStyle(	
+		LVS_EX_FULLROWSELECT |		// 아이템 선택시 전체행 선택
+		LVS_EX_GRIDLINES |			// 그리드라인
+		LVS_EX_ONECLICKACTIVATE |	// 핫트래킹 Or 클릭으로 아이템 선택
+		LVS_EX_HEADERDRAGDROP
+	);
+
+	m_ctrlLogList.InsertColumn(0, _T("Time"), LVCFMT_CENTER, 103, -1);
+	m_ctrlLogList.InsertColumn(2, _T("Result"), LVCFMT_CENTER, 100, -1);
+	m_ctrlLogList.InsertColumn(3, _T("Confidence"), LVCFMT_CENTER, 140, -1);
+	m_ctrlLogList.SetExtendedStyle(
+		LVS_EX_FULLROWSELECT |		// 아이템 선택시 전체행 선택
+		LVS_EX_GRIDLINES |			// 그리드라인
+		LVS_EX_ONECLICKACTIVATE |	// 핫트래킹 Or 클릭으로 아이템 선택
+		LVS_EX_HEADERDRAGDROP
+	);
+
+	pMainDlg = this;
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -153,3 +252,76 @@ HCURSOR CBottleCapDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+void CBottleCapDlg::OnBnClickedCheck1()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+}
+
+void CBottleCapDlg::DisplayCam(void* pImageBuf)
+{
+	SetStretchBltMode(hdc, COLORONCOLOR);
+	StretchDIBits(hdc, 0, 0, rectStaticClient.Width(), rectStaticClient.Height(), 0, 0, (int)m_CameraManager.m_iCM_reSizeWidth, (int)m_CameraManager.m_iCM_Height, pImageBuf, bitmapinfo, DIB_RGB_COLORS, SRCCOPY);
+}
+
+void CBottleCapDlg::OnBnClickedFindButton()
+{
+	m_error = m_CameraManager.FindCamera(m_strCamName, m_strSerialNum, m_strInterface);
+
+	if (m_error == 0)
+	{
+		m_ctrlCamList.DeleteAllItems();
+		m_ctrlCamList.InsertItem(0, m_strCamName);
+		m_ctrlCamList.SetItemText(0, 1, m_strSerialNum);
+		m_ctrlCamList.SetItemText(0, 2, _T("Find_Success"));
+
+		m_bSelectCamera = true;
+	}
+	else if (m_error == -1)
+	{
+		AfxMessageBox(_T("연결된 카메라가 없습니다."));
+	}
+	else if (m_error == -2)
+	{
+		AfxMessageBox(_T("Pylon Function Error"));
+	}
+}
+
+
+void CBottleCapDlg::OnNMClickCameraList(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
+	m_iListIndex = pNMListView->iItem;
+	SetDlgItemText(IDC_SELECT_CAM, m_ctrlCamList.GetItemText(m_iListIndex, 0));
+
+	*pResult = 0;
+}
+
+
+void CBottleCapDlg::OnBnClickedOpenButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	if (m_bSelectCamera)
+	{
+		int error = m_CameraManager.OpenCamera();
+		if (error == 0)
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Open_Success"));
+
+		}
+		else if (error == -1)
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Alread_Open"));
+		}
+		else
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Open_Fail"));
+		}
+	}
+	else
+	{
+		AfxMessageBox(_T("리스트에서 카메라를 먼저 선택하세요."));
+	}
+}
