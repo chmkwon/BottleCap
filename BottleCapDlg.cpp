@@ -19,46 +19,76 @@ UINT LiveGrabThreadCam(LPVOID pParam)
 	int nindex = 0;
 	int nCamIndex = *(int*)pParam;
 
-	QueryPerformanceCounter(&(pMainDlg->start));
-	pMainDlg->nFrameCount = 0;
+	if (pMainDlg == nullptr) {
+		AfxMessageBox(_T("에러!!"));
+		return 1; 
+	}
+
+	QueryPerformanceCounter(&(pMainDlg->start[nCamIndex]));
+	pMainDlg->nFrameCount[nCamIndex] = 0;
 	CString Info;
-	while (pMainDlg->bStopThread == true)
+	while (pMainDlg->bStopThread[nCamIndex] == true)
 	{
-		if (pMainDlg->m_CameraManager.m_bRemoveCamera == true)
+		if (pMainDlg->m_CameraManager.m_bRemoveCamera[nCamIndex] == true)
 		{
-			if (pMainDlg->m_strSerialNum == pMainDlg->m_ctrlCamList.GetItemText(0, 1))
+
+			if (pMainDlg->m_szSerialNum[nCamIndex] == pMainDlg->m_ctrlCamList.GetItemText(0, 2))
 			{
-				pMainDlg->m_CameraManager.m_bRemoveCamera = false;
-				pMainDlg->m_ctrlCamList.SetItemText(0, 2, _T("LostConnection"));
+				pMainDlg->m_CameraManager.m_bRemoveCamera[nCamIndex] = false;
+				pMainDlg->m_ctrlCamList.SetItemText(0, 3, _T("LostConnection"));
+			}
+			else if (pMainDlg->m_szSerialNum[nCamIndex] == pMainDlg->m_ctrlCamList.GetItemText(1, 2))
+			{
+				pMainDlg->m_CameraManager.m_bRemoveCamera[nCamIndex] = false;
+				pMainDlg->m_ctrlCamList.SetItemText(1, 3, _T("LostConnection"));
 			}
 		}
 		else
 		{
-			if (pMainDlg->m_CameraManager.CheckCaptureEnd()) //exposure end true일때 
+			if (pMainDlg->m_CameraManager.CheckCaptureEnd(nCamIndex)) //exposure end true일때 
 			{
-				pMainDlg->nFrameCount++;
-				QueryPerformanceCounter(&(pMainDlg->end));
-				pMainDlg->m_CameraManager.ReadEnd();  // exposure end flag 변경 
-				pMainDlg->DisplayCam(pMainDlg->pImageresizeOrgBuffer[0]);
+				pMainDlg->nFrameCount[nCamIndex]++;
+				QueryPerformanceCounter(&(pMainDlg->end[nCamIndex]));
+				if (pMainDlg->m_CameraManager.m_strCM_ImageForamt[nCamIndex] == "Mono8")
+				{
+					for (int y = 0; y < pMainDlg->m_CameraManager.m_iCM_Height[nCamIndex]; y++)          // widht가 4의 배수가 아닌 경우 ex)659  - > 660으로 memcpy
+					{
+						memcpy(&pMainDlg->pImageresizeOrgBuffer[nCamIndex][nindex][y * pMainDlg->m_CameraManager.m_iCM_reSizeWidth[nCamIndex]], &pMainDlg->m_CameraManager.pImage8Buffer[nCamIndex][y * pMainDlg->m_CameraManager.m_iCM_Width[nCamIndex]], pMainDlg->m_CameraManager.m_iCM_Width[nCamIndex]);
+					}
+					pMainDlg->m_CameraManager.ReadEnd(nCamIndex);  // exposure end flag 변경 
+					switch (nCamIndex)
+					{
+					case 0:
+						pMainDlg->DisplayCam(pMainDlg->pImageresizeOrgBuffer[0][nindex]);
+						break;
+					}
+
+				}
 				
 				nindex++;
 				if (nindex == BUF_NUM)
 				{
 					nindex = 0;
 				}
-				if (pMainDlg->end.QuadPart / (pMainDlg->freq.QuadPart / 1000.0) > pMainDlg->start.QuadPart / (pMainDlg->freq.QuadPart / 1000.0) + 1000)
+				if (pMainDlg->end[nCamIndex].QuadPart / (pMainDlg->freq[nCamIndex].QuadPart / 1000.0) > pMainDlg->start[nCamIndex].QuadPart / (pMainDlg->freq[nCamIndex].QuadPart / 1000.0) + 1000)
 				{
 					CString temp;
-					temp.Format(_T("%d fps"), pMainDlg->nFrameCount);
+					temp.Format(_T("%d fps"), pMainDlg->nFrameCount[nCamIndex]);
+					if (nCamIndex == 0)
+					{
+						pMainDlg->SetDlgItemText(CAMERA_STATS, temp);
+					}
 
-					pMainDlg->SetDlgItemText(CAMERA_STATS, temp);
-					pMainDlg->nFrameCount = 0;
-					QueryPerformanceCounter(&(pMainDlg->start));
+					pMainDlg->nFrameCount[nCamIndex] = 0;
+					QueryPerformanceCounter(&(pMainDlg->start[nCamIndex]));
 				}
-
-				Info.Format(_T("Grabbed Frame = %d , SkippedFrame = %d"), pMainDlg->m_CameraManager.m_iGrabbedFrame, pMainDlg->m_CameraManager.m_iSkippiedFrame);
-				
-				pMainDlg->SetDlgItemText(CAM_INFO, Info);
+				Info.Format(_T("Grabbed Frame = %d , SkippedFrame = %d"), pMainDlg->m_CameraManager.m_iGrabbedFrame[nCamIndex], pMainDlg->m_CameraManager.m_iSkippiedFrame[nCamIndex]);
+				switch (nCamIndex)
+				{
+				case 0:
+					pMainDlg->SetDlgItemText(CAM_INFO, Info);
+					break;
+				}
 			}
 		}
 		//   Sleep(1);
@@ -102,21 +132,12 @@ END_MESSAGE_MAP()
 
 // CBottleCapDlg 대화 상자
 
-
-
 CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_BOTTLECAP_DIALOG, pParent)
-{
-
-	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
-	 
-	bStopThread = false;
-	m_bSelectCamera = false;
-	/*for (int i = 0; i < CAM_NUM; i++)
+{	 
+	for (int i = 0; i < CAM_NUM; i++)
 	{
 		pImageresizeOrgBuffer[i] = NULL;
-
-		pImageColorDestBuffer[i] = NULL;
 		bitmapinfo[i] = NULL;
 		bStopThread[i] = false;
 		nFrameCount[i] = 0;
@@ -125,7 +146,9 @@ CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 		m_CameraManager.m_iCM_Height[i] = 1;
 		QueryPerformanceFrequency(&freq[i]);
 		m_nCamIndexBuf[i] = i;
-	}*/
+	}
+	m_iCameraIndex = -1;
+	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
 void CBottleCapDlg::DoDataExchange(CDataExchange* pDX)
@@ -142,6 +165,12 @@ BEGIN_MESSAGE_MAP(CBottleCapDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_FIND_BUTTON, &CBottleCapDlg::OnBnClickedFindButton)
 	ON_NOTIFY(NM_CLICK, IDC_CAMERA_LIST, &CBottleCapDlg::OnNMClickCameraList)
 	ON_BN_CLICKED(IDC_OPEN_BUTTON, &CBottleCapDlg::OnBnClickedOpenButton)
+	ON_BN_CLICKED(IDC_CLOSE_BUTTON, &CBottleCapDlg::OnBnClickedCloseButton)
+	ON_BN_CLICKED(IDC_CONNECT_BUTTON, &CBottleCapDlg::OnBnClickedConnectButton)
+	ON_BN_CLICKED(IDC_GRAB_BUTTON, &CBottleCapDlg::OnBnClickedGrabButton)
+	ON_BN_CLICKED(IDC_BUTTON6, &CBottleCapDlg::OnBnClickedButton6)
+	ON_BN_CLICKED(IDC_BUTTON7, &CBottleCapDlg::OnBnClickedButton7)
+	ON_BN_CLICKED(IDC_CHECK_CAM, &CBottleCapDlg::OnBnClickedCheckCam)
 END_MESSAGE_MAP()
 
 
@@ -252,29 +281,48 @@ HCURSOR CBottleCapDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-void CBottleCapDlg::OnBnClickedCheck1()
-{
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-}
-
 void CBottleCapDlg::DisplayCam(void* pImageBuf)
 {
-	SetStretchBltMode(hdc, COLORONCOLOR);
-	StretchDIBits(hdc, 0, 0, rectStaticClient.Width(), rectStaticClient.Height(), 0, 0, (int)m_CameraManager.m_iCM_reSizeWidth, (int)m_CameraManager.m_iCM_Height, pImageBuf, bitmapinfo, DIB_RGB_COLORS, SRCCOPY);
+	SetStretchBltMode(hdc[0], COLORONCOLOR);
+	StretchDIBits(hdc[0], 0, 0, rectStaticClient[0].Width(), rectStaticClient[0].Height(), 0, 0, (int)m_CameraManager.m_iCM_reSizeWidth[0], (int)m_CameraManager.m_iCM_Height[0], pImageBuf, bitmapinfo[0], DIB_RGB_COLORS, SRCCOPY);
 }
 
 void CBottleCapDlg::OnBnClickedFindButton()
 {
-	m_error = m_CameraManager.FindCamera(m_strCamName, m_strSerialNum, m_strInterface);
+	m_error = m_CameraManager.FindCamera(m_szCamName, m_szSerialNum, m_szInterface, &m_iCamNumber);
 
 	if (m_error == 0)
 	{
 		m_ctrlCamList.DeleteAllItems();
-		m_ctrlCamList.InsertItem(0, m_strCamName);
-		m_ctrlCamList.SetItemText(0, 1, m_strSerialNum);
+		int  nCount = 0;
+		CString strSerialNum;
+		for (int i = 0; i < m_iCamNumber; i++)
+		{
+			nCount++;
+			CString strcamname = (CString)m_szCamName[i];
+			strSerialNum = (CString)m_szSerialNum[i];
+
+			if (nCount == 1)
+			{
+				m_iCamPosition[0] = 1;
+			}
+
+			m_ctrlCamList.InsertItem(i, strcamname);
+			m_ctrlCamList.SetItemText(i, 1, strSerialNum);
+			m_ctrlCamList.SetItemText(i, 2, _T("Find_Success"));
+			m_bSelectCamera = true;
+		}
+		/*m_ctrlCamList.DeleteAllItems();
+		int  nCount = 0;
+		CString strSerialNum;
+		m_iCamPosition[0] = 1;
+
+		m_ctrlCamList.DeleteAllItems();
+		m_ctrlCamList.InsertItem(0, m_szCamName);
+		m_ctrlCamList.SetItemText(0, 1, m_szSerialNum);
 		m_ctrlCamList.SetItemText(0, 2, _T("Find_Success"));
 
-		m_bSelectCamera = true;
+		m_bSelectCamera = true;*/
 	}
 	else if (m_error == -1)
 	{
@@ -295,7 +343,7 @@ void CBottleCapDlg::OnNMClickCameraList(NMHDR* pNMHDR, LRESULT* pResult)
 	NM_LISTVIEW* pNMListView = (NM_LISTVIEW*)pNMHDR;
 	m_iListIndex = pNMListView->iItem;
 	SetDlgItemText(IDC_SELECT_CAM, m_ctrlCamList.GetItemText(m_iListIndex, 0));
-
+	m_iCameraIndex = 0;
 	*pResult = 0;
 }
 
@@ -303,9 +351,16 @@ void CBottleCapDlg::OnNMClickCameraList(NMHDR* pNMHDR, LRESULT* pResult)
 void CBottleCapDlg::OnBnClickedOpenButton()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	if (m_bSelectCamera)
-	{
-		int error = m_CameraManager.OpenCamera();
+	if (m_iCameraIndex != -1)
+	{/*
+		int a = m_iCameraIndex;
+		int b = m_iCamPosition[m_iCameraIndex];
+
+		CString message;
+		message.Format(_T("%d %d"), a, b);
+		AfxMessageBox(message);*/
+
+		int error = m_CameraManager.Open_Camera(m_iCameraIndex, m_iCamPosition[m_iCameraIndex]);
 		if (error == 0)
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Open_Success"));
@@ -323,5 +378,206 @@ void CBottleCapDlg::OnBnClickedOpenButton()
 	else
 	{
 		AfxMessageBox(_T("리스트에서 카메라를 먼저 선택하세요."));
+	}
+}
+
+
+void CBottleCapDlg::OnBnClickedCloseButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	if (m_CameraManager.m_bCamOpenFlag[m_iCameraIndex] == true)
+	{
+		if (m_CameraManager.Close_Camera(m_iCameraIndex) == 0)
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Close_Success"));
+			if (bitmapinfo[m_iCameraIndex])
+			{
+				delete bitmapinfo[m_iCameraIndex];
+				bitmapinfo[m_iCameraIndex] = NULL;
+			}
+			if (pImageresizeOrgBuffer[m_iCameraIndex])
+			{
+				for (int i = 0; i < BUF_NUM; i++)
+				{
+					free(pImageresizeOrgBuffer[m_iCameraIndex][i]);
+				}
+				free(pImageresizeOrgBuffer[m_iCameraIndex]);
+				pImageresizeOrgBuffer[m_iCameraIndex] = NULL;
+			}
+		}
+		else
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Close_Fail"));
+
+		}
+	}
+}
+
+void CBottleCapDlg::OnBnClickedConnectButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	if (m_CameraManager.m_bCamOpenFlag[m_iCameraIndex] == true)
+	{
+		//if(m_iCameraIndex==0)
+		//{
+		if (m_CameraManager.Connect_Camera(m_iCameraIndex, 0, 0, 1984, 1264, _T("Mono8")) == 0)    //BayerBG8   YUV422Packed  Mono8 , Mono16
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Connect_Success"));
+			AllocImageBuf();
+			InitBitmap(m_iCameraIndex);
+		}
+		else
+		{
+			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Connect_Fail"));
+		}
+	}
+	else
+	{
+		AfxMessageBox(_T("사용할 카메라 Open을 하세요!!"));
+	}
+}
+void CBottleCapDlg::OnBnClickedGrabButton()
+{
+	if (m_CameraManager.m_bCamConnectFlag[m_iCameraIndex] == true)
+	{
+		bLiveFlag[m_iCameraIndex] = false;
+		if (m_CameraManager.SingleGrab(m_iCameraIndex) == 0)
+		{
+			while (bLiveFlag[m_iCameraIndex] == false)
+			{
+				if (m_CameraManager.CheckCaptureEnd(m_iCameraIndex))
+				{
+					if (m_CameraManager.m_strCM_ImageForamt[m_iCameraIndex] == "Mono8")
+					{
+						for (int y = 0; y < m_CameraManager.m_iCM_Height[m_iCameraIndex]; y++)
+						{
+							memcpy(&pImageresizeOrgBuffer[m_iCameraIndex][0][y * m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex]],
+								&m_CameraManager.pImage8Buffer[m_iCameraIndex][y * m_CameraManager.m_iCM_Width[m_iCameraIndex]],
+								m_CameraManager.m_iCM_Width[m_iCameraIndex]);
+						}
+						m_CameraManager.ReadEnd(m_iCameraIndex);
+
+						DisplayGrab(pImageresizeOrgBuffer[m_iCameraIndex][0]);
+					}
+
+					bLiveFlag[m_iCameraIndex] = true;
+				}
+			}
+		}
+	}
+}
+
+void CBottleCapDlg::DisplayGrab(void* pImageBuf)
+{
+	CWnd* pWnd = GetDlgItem(IDC_GRABBED_DISPLAY);
+	if (pWnd)
+	{
+		CDC* pDC = pWnd->GetDC();
+		CRect rect;
+		pWnd->GetClientRect(&rect);
+
+		SetStretchBltMode(pDC->GetSafeHdc(), COLORONCOLOR);
+		StretchDIBits(pDC->GetSafeHdc(),
+			0, 0, rect.Width(), rect.Height(),
+			0, 0, m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex], m_CameraManager.m_iCM_Height[m_iCameraIndex],
+			pImageBuf, bitmapinfo[m_iCameraIndex], DIB_RGB_COLORS, SRCCOPY);
+
+		pWnd->ReleaseDC(pDC);
+	}
+}
+
+void CBottleCapDlg::OnBnClickedButton6()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+}
+
+void CBottleCapDlg::OnBnClickedButton7()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+}
+
+void CBottleCapDlg::OnBnClickedCheckCam()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	if (m_CameraManager.m_bCamConnectFlag[0] == true)
+	{
+		// 비트연산토글
+		bStopThread[0] = (bStopThread[0] + 1) & 0x01;
+
+		if (bStopThread[0])
+		{
+			bLiveFlag[0] = true;
+			m_CameraManager.GrabLive(0, 0);
+			AfxBeginThread(LiveGrabThreadCam, &m_nCamIndexBuf[0]);
+		}
+		else
+		{
+			bLiveFlag[0] = false;			
+			m_CameraManager.LiveStop(0, 0);
+		}
+	}
+	else
+	{
+		AfxMessageBox(_T("Camera0 Connect를 하세요!!"));
+		CButton* pButton = (CButton*)pMainDlg->GetDlgItem(IDC_CHECK_CAM);
+		pButton->SetCheck(0);
+	}
+}
+
+void CBottleCapDlg::AllocImageBuf(void)
+{
+	UpdateData();
+	if (m_CameraManager.m_strCM_ImageForamt[m_iCameraIndex] == "Mono8")   // Mono
+	{
+
+		pImageresizeOrgBuffer[m_iCameraIndex] = (unsigned char**)malloc(BUF_NUM * sizeof(unsigned char*));
+		for (int i = 0; i < BUF_NUM; i++)
+		{
+			pImageresizeOrgBuffer[m_iCameraIndex][i] = (unsigned char*)malloc(m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex] * m_CameraManager.m_iCM_Height[m_iCameraIndex]);
+		}
+	}
+
+	// Display 핸들
+	switch (m_iCameraIndex)
+	{
+	case 0:
+		hWnd[0] = GetDlgItem(IDC_CAM_DISPLAY)->GetSafeHwnd();
+		GetDlgItem(IDC_CAM_DISPLAY)->GetClientRect(&rectStaticClient[0]);
+		hdc[0] = ::GetDC(hWnd[0]);
+		break;
+	}
+}
+
+void CBottleCapDlg::InitBitmap(int nCamIndex)
+{
+	if (m_CameraManager.m_strCM_ImageForamt[m_iCameraIndex] == "Mono8" || m_CameraManager.m_strCM_ImageForamt[m_iCameraIndex] == "Mono16")
+	{
+		if (bitmapinfo[nCamIndex])
+		{
+			delete bitmapinfo[nCamIndex];
+			bitmapinfo[nCamIndex] = NULL;
+		}
+		bitmapinfo[nCamIndex] = (BITMAPINFO*)(new char[sizeof(BITMAPINFOHEADER) +
+			256 * sizeof(RGBQUAD)]);
+
+		bitmapinfo[nCamIndex]->bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+		bitmapinfo[nCamIndex]->bmiHeader.biWidth = (int)m_CameraManager.m_iCM_reSizeWidth[nCamIndex];
+		bitmapinfo[nCamIndex]->bmiHeader.biHeight = -(int)m_CameraManager.m_iCM_Height[nCamIndex];
+		bitmapinfo[nCamIndex]->bmiHeader.biPlanes = 1;
+		bitmapinfo[nCamIndex]->bmiHeader.biCompression = BI_RGB;
+		bitmapinfo[nCamIndex]->bmiHeader.biBitCount = 8;
+		bitmapinfo[nCamIndex]->bmiHeader.biSizeImage = (int)(m_CameraManager.m_iCM_reSizeWidth[nCamIndex] * m_CameraManager.m_iCM_Height[nCamIndex]);
+		bitmapinfo[nCamIndex]->bmiHeader.biXPelsPerMeter = 0;
+		bitmapinfo[nCamIndex]->bmiHeader.biYPelsPerMeter = 0;
+		bitmapinfo[nCamIndex]->bmiHeader.biClrUsed = 256;
+		bitmapinfo[nCamIndex]->bmiHeader.biClrImportant = 0;
+
+		for (int j = 0;j < 256;j++)
+		{
+			bitmapinfo[nCamIndex]->bmiColors[j].rgbRed = (unsigned char)j;
+			bitmapinfo[nCamIndex]->bmiColors[j].rgbGreen = (unsigned char)j;
+			bitmapinfo[nCamIndex]->bmiColors[j].rgbBlue = (unsigned char)j;
+			bitmapinfo[nCamIndex]->bmiColors[j].rgbReserved = 0;
+		}
 	}
 }

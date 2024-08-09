@@ -4,6 +4,8 @@
 
 #pragma once
 #include "CameraManager.h"
+#include "afxcmn.h"
+#include "afxwin.h"
 
 // CBottleCapDlg 대화 상자
 class CBottleCapDlg : public CDialogEx
@@ -23,29 +25,34 @@ public:
 
 // 구현입니다.
 public:
-	CString m_strCamName;
-	CString m_strSerialNum;
-	CString m_strInterface;
+	char m_szCamName[CAM_NUM][100];     
+	char m_szSerialNum[CAM_NUM][100];      
+	char m_szInterface[CAM_NUM][100];      
 	CCameraManager  m_CameraManager;
 
+	int  m_iCamNumber;                   
+	int  m_iCamPosition[CAM_NUM];            
+	int  m_iCameraIndex;                    
+
 	bool m_bSelectCamera;
-	bool bStopThread;
+	bool bStopThread[CAM_NUM];
+	bool bLiveFlag[CAM_NUM];
 
 	int m_error;
 	int m_iListIndex;
 
+	int nFrameCount[CAM_NUM];
+	int m_nCamIndexBuf[CAM_NUM];
+	double time[CAM_NUM];
+	LARGE_INTEGER freq[CAM_NUM], start[CAM_NUM], end[CAM_NUM];
 
-	int nFrameCount;
-	double time;
-	LARGE_INTEGER freq, start, end;
-
-	HDC hdc;
-	HWND hWnd;
-	CRect rectStaticClient;
+	HDC hdc[CAM_NUM];
+	HWND hWnd[CAM_NUM];
+	CRect rectStaticClient[CAM_NUM];
 	BITMAPFILEHEADER fileheader;
-	LPBITMAPINFO  bitmapinfo;
+	LPBITMAPINFO bitmapinfo[CAM_NUM];
 
-	unsigned char** pImageresizeOrgBuffer;   
+	unsigned char** pImageresizeOrgBuffer[CAM_NUM];
 protected:
 	HICON m_hIcon;
 
@@ -56,14 +63,20 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
-	afx_msg void OnBnClickedCheck1();
-	afx_msg void OnBnClickedButton3();
 	afx_msg void OnBnClickedFindButton();
 	CListCtrl m_ctrlCamList;
 	
 	CListCtrl m_ctrlLogList;
 	void AllocImageBuf(void);
 	void DisplayCam(void* pImageBuf);
+	void DisplayGrab(void* pImageBuf);
+	void InitBitmap(int nCamIndex);
 	afx_msg void OnNMClickCameraList(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnBnClickedOpenButton();
+	afx_msg void OnBnClickedCloseButton();
+	afx_msg void OnBnClickedConnectButton();
+	afx_msg void OnBnClickedGrabButton();
+	afx_msg void OnBnClickedButton6();
+	afx_msg void OnBnClickedButton7();
+	afx_msg void OnBnClickedCheckCam();
 };
