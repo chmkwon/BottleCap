@@ -484,6 +484,15 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 
 		pWnd->ReleaseDC(pDC);
 	}
+
+	//// 이미지 데이터를 OpenCV Mat 객체로 변환
+	//cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
+	//	m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
+	//	CV_8UC1, pImageBuf);
+
+	//cv::resize(image, image, cv::Size(640, 480));
+	//cv::imshow("Grabbed Image", image);
+	//cv::waitKey(1);
 }
 
 void CBottleCapDlg::OnBnClickedButton6()

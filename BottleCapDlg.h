@@ -6,6 +6,7 @@
 #include "CameraManager.h"
 #include "afxcmn.h"
 #include "afxwin.h"
+#include <opencv2/opencv.hpp>
 
 // CBottleCapDlg 대화 상자
 class CBottleCapDlg : public CDialogEx
