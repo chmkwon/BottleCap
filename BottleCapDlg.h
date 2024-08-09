@@ -82,4 +82,14 @@ public:
 	afx_msg void OnBnClickedButton6();
 	afx_msg void OnBnClickedButton7();
 	afx_msg void OnBnClickedCheckCam();
+
+
+private:
+	// TCP / IP
+	CSocket m_socket;
+	bool m_bConnected;
+
+	bool Connect(CString serverIP, int port);
+	bool SendImage(cv::Mat& image);
+	bool RecvResponse(CString& response);
 };

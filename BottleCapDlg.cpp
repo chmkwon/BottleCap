@@ -458,26 +458,41 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 		pWnd->ReleaseDC(pDC);
 	}
 
-	// 오브젝트 디텍팅
+	// 오픈CV
 
-	//cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
-	//	m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
-	//	CV_8UC1, pImageBuf);
+	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
+		m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
+		CV_8UC1, pImageBuf);
 
-	//cv::resize(image, image, cv::Size(640, 480));
-	//cv::imshow("Grabbed Image", image);
-	//cv::waitKey(1);
+	cv::resize(image, image, cv::Size(640, 480));
+	cv::imshow("h",image);
+	cv::waitKey(1);
 
+	if (!m_bConnected)
+	{
+		if (Connect(_T("10.10.21.110"), 9934))
+			AfxMessageBox(_T("서버에 연결되었습니다."));
+		else
+			return;
+	}
+
+	if (SendImage(image))
+	{
+		AfxMessageBox(_T("전송 완료"));
+		CTime currentTime = CTime::GetCurrentTime();
+		CString strCurrentTime = currentTime.Format("%H:%M:%S");
+
+		m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
+		m_ctrlLogList.SetItemText(m_LogIndex, 1, _T("No Cap"));
+		m_ctrlLogList.SetItemText(m_LogIndex, 2, _T("80 %"));
+		m_LogIndex++;
+	}
+	else
+	{
+		AfxMessageBox(_T("전송 실패"));
+	}
 	// 서버 연결 후 결과 요청
 	// 시간, 결과, 퍼센트
-
-	CTime currentTime = CTime::GetCurrentTime();
-	CString strCurrentTime = currentTime.Format("%H:%M:%S");
-
-	m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
-	m_ctrlLogList.SetItemText(m_LogIndex, 1, _T("No Cap"));
-	m_ctrlLogList.SetItemText(m_LogIndex, 2, _T("80 %"));
-	m_LogIndex++;
 }
 
 void CBottleCapDlg::OnBnClickedButton6()
@@ -576,4 +591,64 @@ void CBottleCapDlg::InitBitmap(int nCamIndex)
 			bitmapinfo[nCamIndex]->bmiColors[j].rgbReserved = 0;
 		}
 	}
+}
+
+// TCP/IP
+
+bool CBottleCapDlg::Connect(CString serverIP, int port)
+{
+	if (!AfxSocketInit())
+	{
+		AfxMessageBox(_T("소켓 초기화 실패"));
+		return false;
+	}
+
+	if (!m_socket.Create())
+	{
+		AfxMessageBox(_T("소켓 생성 실패"));
+		return false;
+	}
+
+	if (!m_socket.Connect(serverIP, port))
+	{
+		AfxMessageBox(_T("서버 연결 실패"));
+		m_socket.Close();
+		return false;
+	}
+
+	m_bConnected = true;
+	return true;
+}
+
+bool CBottleCapDlg::SendImage(cv::Mat& image)
+{
+	std::vector<uchar> buffer;
+	cv::imencode(".jpg", image, buffer);
+
+	int size = buffer.size();
+	if (m_socket.Send(&size, sizeof(size)) != sizeof(size))
+		return false;
+
+	int totalSent = 0;
+	while (totalSent < size)
+	{
+		int sent = m_socket.Send(buffer.data() + totalSent, size - totalSent);
+		if (sent == SOCKET_ERROR)
+			return false;
+		totalSent += sent;
+	}
+	return true;
+}
+
+bool CBottleCapDlg::RecvResponse(CString& response)
+{
+	char buffer[1024];
+	int nBytes = m_socket.Receive(buffer, sizeof(buffer) - 1);
+	if (nBytes > 0)
+	{
+		buffer[nBytes] = '\0';
+		response = CString(buffer);
+		return true;
+	}
+	return false;
 }
