@@ -21,6 +21,7 @@ CCameraManager::CCameraManager(void)
 		m_pCameraNodeMap[i] = NULL;
 	}
 	m_imgNjm = 0;
+	
 
 	bLogUse = false;   // Log  사용시 true로 변경
 }

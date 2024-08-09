@@ -1,7 +1,6 @@
 ﻿
 // BottleCapDlg.cpp: 구현 파일
 //
-
 #include "pch.h"
 #include "framework.h"
 #include "BottleCap.h"
@@ -19,7 +18,8 @@ UINT LiveGrabThreadCam(LPVOID pParam)
 	int nindex = 0;
 	int nCamIndex = *(int*)pParam;
 
-	if (pMainDlg == nullptr) {
+	if (pMainDlg == nullptr)
+	{
 		AfxMessageBox(_T("에러!!"));
 		return 1; 
 	}
@@ -31,7 +31,6 @@ UINT LiveGrabThreadCam(LPVOID pParam)
 	{
 		if (pMainDlg->m_CameraManager.m_bRemoveCamera[nCamIndex] == true)
 		{
-
 			if (pMainDlg->m_szSerialNum[nCamIndex] == pMainDlg->m_ctrlCamList.GetItemText(0, 2))
 			{
 				pMainDlg->m_CameraManager.m_bRemoveCamera[nCamIndex] = false;
@@ -60,11 +59,15 @@ UINT LiveGrabThreadCam(LPVOID pParam)
 					{
 					case 0:
 						pMainDlg->DisplayCam(pMainDlg->pImageresizeOrgBuffer[0][nindex]);
+
+						if (pMainDlg->m_bGrabDisplay)
+						{
+							pMainDlg->DisplayGrab(pMainDlg->pImageresizeOrgBuffer[0][nindex]);
+							pMainDlg->m_bGrabDisplay = false;
+						}
 						break;
 					}
-
 				}
-				
 				nindex++;
 				if (nindex == BUF_NUM)
 				{
@@ -78,7 +81,6 @@ UINT LiveGrabThreadCam(LPVOID pParam)
 					{
 						pMainDlg->SetDlgItemText(CAMERA_STATS, temp);
 					}
-
 					pMainDlg->nFrameCount[nCamIndex] = 0;
 					QueryPerformanceCounter(&(pMainDlg->start[nCamIndex]));
 				}
@@ -147,6 +149,8 @@ CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 		QueryPerformanceFrequency(&freq[i]);
 		m_nCamIndexBuf[i] = i;
 	}
+	m_bGrabDisplay = false;
+	m_LogIndex = 0;
 	m_iCameraIndex = -1;
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -312,17 +316,6 @@ void CBottleCapDlg::OnBnClickedFindButton()
 			m_ctrlCamList.SetItemText(i, 2, _T("Find_Success"));
 			m_bSelectCamera = true;
 		}
-		/*m_ctrlCamList.DeleteAllItems();
-		int  nCount = 0;
-		CString strSerialNum;
-		m_iCamPosition[0] = 1;
-
-		m_ctrlCamList.DeleteAllItems();
-		m_ctrlCamList.InsertItem(0, m_szCamName);
-		m_ctrlCamList.SetItemText(0, 1, m_szSerialNum);
-		m_ctrlCamList.SetItemText(0, 2, _T("Find_Success"));
-
-		m_bSelectCamera = true;*/
 	}
 	else if (m_error == -1)
 	{
@@ -418,8 +411,6 @@ void CBottleCapDlg::OnBnClickedConnectButton()
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 	if (m_CameraManager.m_bCamOpenFlag[m_iCameraIndex] == true)
 	{
-		//if(m_iCameraIndex==0)
-		//{
 		if (m_CameraManager.Connect_Camera(m_iCameraIndex, 0, 0, 1984, 1264, _T("Mono8")) == 0)    //BayerBG8   YUV422Packed  Mono8 , Mono16
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Connect_Success"));
@@ -438,32 +429,14 @@ void CBottleCapDlg::OnBnClickedConnectButton()
 }
 void CBottleCapDlg::OnBnClickedGrabButton()
 {
-	if (m_CameraManager.m_bCamConnectFlag[m_iCameraIndex] == true)
+	if (bLiveFlag[0] = true)
 	{
-		bLiveFlag[m_iCameraIndex] = false;
-		if (m_CameraManager.SingleGrab(m_iCameraIndex) == 0)
-		{
-			while (bLiveFlag[m_iCameraIndex] == false)
-			{
-				if (m_CameraManager.CheckCaptureEnd(m_iCameraIndex))
-				{
-					if (m_CameraManager.m_strCM_ImageForamt[m_iCameraIndex] == "Mono8")
-					{
-						for (int y = 0; y < m_CameraManager.m_iCM_Height[m_iCameraIndex]; y++)
-						{
-							memcpy(&pImageresizeOrgBuffer[m_iCameraIndex][0][y * m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex]],
-								&m_CameraManager.pImage8Buffer[m_iCameraIndex][y * m_CameraManager.m_iCM_Width[m_iCameraIndex]],
-								m_CameraManager.m_iCM_Width[m_iCameraIndex]);
-						}
-						m_CameraManager.ReadEnd(m_iCameraIndex);
-
-						DisplayGrab(pImageresizeOrgBuffer[m_iCameraIndex][0]);
-					}
-
-					bLiveFlag[m_iCameraIndex] = true;
-				}
-			}
-		}
+		m_CameraManager.SingleGrab(m_iCameraIndex);
+		m_bGrabDisplay = true;
+	}
+	else
+	{
+		AfxMessageBox(_T("라이브 부터 키세요!!"));
 	}
 }
 
@@ -485,7 +458,8 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 		pWnd->ReleaseDC(pDC);
 	}
 
-	//// 이미지 데이터를 OpenCV Mat 객체로 변환
+	// 오브젝트 디텍팅
+
 	//cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
 	//	m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
 	//	CV_8UC1, pImageBuf);
@@ -493,16 +467,29 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	//cv::resize(image, image, cv::Size(640, 480));
 	//cv::imshow("Grabbed Image", image);
 	//cv::waitKey(1);
+
+	// 서버 연결 후 결과 요청
+	// 시간, 결과, 퍼센트
+
+	CTime currentTime = CTime::GetCurrentTime();
+	CString strCurrentTime = currentTime.Format("%H:%M:%S");
+
+	m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
+	m_ctrlLogList.SetItemText(m_LogIndex, 1, _T("No Cap"));
+	m_ctrlLogList.SetItemText(m_LogIndex, 2, _T("80 %"));
+	m_LogIndex++;
 }
 
 void CBottleCapDlg::OnBnClickedButton6()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	// PrevStat
 }
 
 void CBottleCapDlg::OnBnClickedButton7()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	// PrevDefective
 }
 
 void CBottleCapDlg::OnBnClickedCheckCam()

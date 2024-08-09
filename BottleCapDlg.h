@@ -31,10 +31,12 @@ public:
 	char m_szInterface[CAM_NUM][100];      
 	CCameraManager  m_CameraManager;
 
-	int  m_iCamNumber;                   
-	int  m_iCamPosition[CAM_NUM];            
-	int  m_iCameraIndex;                    
+	int m_iCamNumber;                   
+	int m_iCamPosition[CAM_NUM];            
+	int m_iCameraIndex;                    
+	int m_LogIndex;
 
+	bool m_bGrabDisplay;
 	bool m_bSelectCamera;
 	bool bStopThread[CAM_NUM];
 	bool bLiveFlag[CAM_NUM];
