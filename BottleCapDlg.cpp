@@ -459,15 +459,15 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	}
 
 	// 오픈CV
-
 	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
 		m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
 		CV_8UC1, pImageBuf);
-
+	
+	// 이미지 전처리
 	cv::resize(image, image, cv::Size(640, 480));
-	cv::imshow("h",image);
-	cv::waitKey(1);
 
+
+	// 통신
 	if (!m_bConnected)
 	{
 		if (Connect(_T("10.10.21.110"), 9934))
@@ -475,13 +475,15 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 		else
 			return;
 	}
-
+	SendProtocol(Protocol::CHECK_RESULT);
 	if (SendImage(image))
 	{
 		AfxMessageBox(_T("전송 완료"));
 		CTime currentTime = CTime::GetCurrentTime();
 		CString strCurrentTime = currentTime.Format("%H:%M:%S");
 
+
+		// 결과 저장
 		m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
 		m_ctrlLogList.SetItemText(m_LogIndex, 1, _T("No Cap"));
 		m_ctrlLogList.SetItemText(m_LogIndex, 2, _T("80 %"));
@@ -491,8 +493,6 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	{
 		AfxMessageBox(_T("전송 실패"));
 	}
-	// 서버 연결 후 결과 요청
-	// 시간, 결과, 퍼센트
 }
 
 void CBottleCapDlg::OnBnClickedButton6()
@@ -622,33 +622,76 @@ bool CBottleCapDlg::Connect(CString serverIP, int port)
 
 bool CBottleCapDlg::SendImage(cv::Mat& image)
 {
-	std::vector<uchar> buffer;
-	cv::imencode(".jpg", image, buffer);
-
-	int size = buffer.size();
-	if (m_socket.Send(&size, sizeof(size)) != sizeof(size))
-		return false;
-
-	int totalSent = 0;
-	while (totalSent < size)
+	if (!m_bConnected)
 	{
-		int sent = m_socket.Send(buffer.data() + totalSent, size - totalSent);
-		if (sent == SOCKET_ERROR)
-			return false;
-		totalSent += sent;
+		return false;
 	}
-	return true;
+	else
+	{
+		std::vector<uchar> buffer;
+		cv::imencode(".jpg", image, buffer);
+
+		int size = buffer.size();
+		if (m_socket.Send(&size, sizeof(size)) != sizeof(size))
+			return false;
+
+		int totalSent = 0;
+		while (totalSent < size)
+		{
+			int sent = m_socket.Send(buffer.data() + totalSent, size - totalSent);
+			if (sent == SOCKET_ERROR)
+				return false;
+			totalSent += sent;
+		}
+		return true;
+	}
 }
 
 bool CBottleCapDlg::RecvResponse(CString& response)
 {
-	char buffer[1024];
-	int nBytes = m_socket.Receive(buffer, sizeof(buffer) - 1);
-	if (nBytes > 0)
+	if (!m_bConnected)
 	{
-		buffer[nBytes] = '\0';
-		response = CString(buffer);
+		return false;
+	}
+	else
+	{
+		char buffer[1024];
+		int nBytes = m_socket.Receive(buffer, sizeof(buffer) - 1);
+		if (nBytes > 0)
+		{
+			buffer[nBytes] = '\0';
+			response = CString(buffer);
+			return true;
+		}
+		return false;
+	}
+}
+
+bool CBottleCapDlg::Disconnect()
+{
+	if (m_bConnected)
+	{
+		m_socket.Close();
+		m_bConnected = false;
 		return true;
 	}
 	return false;
+}
+
+bool CBottleCapDlg::SendProtocol(uchar protocol)
+{
+	if (!m_bConnected)
+	{
+		return false;
+	}
+	else
+	{
+		int sent = m_socket.Send(&protocol, sizeof(uchar));
+		if (sent != sizeof(uchar))
+		{
+			return false;
+		}
+
+		return true;
+	}
 }

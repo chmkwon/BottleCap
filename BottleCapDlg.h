@@ -4,6 +4,7 @@
 
 #pragma once
 #include "CameraManager.h"
+#include "Protocol.h"
 #include "afxcmn.h"
 #include "afxwin.h"
 #include <opencv2/opencv.hpp>
@@ -90,6 +91,8 @@ private:
 	bool m_bConnected;
 
 	bool Connect(CString serverIP, int port);
+	bool Disconnect();
+	bool SendProtocol(uchar protocol);
 	bool SendImage(cv::Mat& image);
 	bool RecvResponse(CString& response);
 };
