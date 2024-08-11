@@ -31,12 +31,14 @@ public:
 	char m_szSerialNum[CAM_NUM][100];      
 	char m_szInterface[CAM_NUM][100];      
 	CCameraManager  m_CameraManager;
+	CSocket m_socket;
 
 	int m_iCamNumber;                   
 	int m_iCamPosition[CAM_NUM];            
 	int m_iCameraIndex;                    
 	int m_LogIndex;
-
+	
+	bool m_bConnected;
 	bool m_bGrabDisplay;
 	bool m_bSelectCamera;
 	bool bStopThread[CAM_NUM];
@@ -84,15 +86,14 @@ public:
 	afx_msg void OnBnClickedButton7();
 	afx_msg void OnBnClickedCheckCam();
 
-
-private:
-	// TCP / IP
-	CSocket m_socket;
-	bool m_bConnected;
-
+	// TCP/IP
 	bool Connect(CString serverIP, int port);
 	bool Disconnect();
 	bool SendProtocol(uchar protocol);
 	bool SendImage(cv::Mat& image);
 	bool RecvResponse(CString& response);
+
+private:
+	// 로그
+	void CBottleCapDlg::insertLog(CString log);
 };

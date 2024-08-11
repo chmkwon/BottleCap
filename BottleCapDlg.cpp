@@ -222,15 +222,14 @@ BOOL CBottleCapDlg::OnInitDialog()
 	);
 
 	m_ctrlLogList.InsertColumn(0, _T("Time"), LVCFMT_CENTER, 103, -1);
-	m_ctrlLogList.InsertColumn(2, _T("Result"), LVCFMT_CENTER, 100, -1);
-	m_ctrlLogList.InsertColumn(3, _T("Confidence"), LVCFMT_CENTER, 140, -1);
+	m_ctrlLogList.InsertColumn(1, _T("Result"), LVCFMT_CENTER, 240, -1);
 	m_ctrlLogList.SetExtendedStyle(
 		LVS_EX_FULLROWSELECT |		// 아이템 선택시 전체행 선택
 		LVS_EX_GRIDLINES |			// 그리드라인
 		LVS_EX_ONECLICKACTIVATE |	// 핫트래킹 Or 클릭으로 아이템 선택
 		LVS_EX_HEADERDRAGDROP
 	);
-
+	
 	pMainDlg = this;
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
@@ -314,12 +313,14 @@ void CBottleCapDlg::OnBnClickedFindButton()
 			m_ctrlCamList.InsertItem(i, strcamname);
 			m_ctrlCamList.SetItemText(i, 1, strSerialNum);
 			m_ctrlCamList.SetItemText(i, 2, _T("Find_Success"));
+			insertLog(_T("Find_Success"));
 			m_bSelectCamera = true;
 		}
 	}
 	else if (m_error == -1)
 	{
 		AfxMessageBox(_T("연결된 카메라가 없습니다."));
+		insertLog(_T("No_Camera"));
 	}
 	else if (m_error == -2)
 	{
@@ -357,15 +358,18 @@ void CBottleCapDlg::OnBnClickedOpenButton()
 		if (error == 0)
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Open_Success"));
+			insertLog(_T("Open_Success"));
 
 		}
 		else if (error == -1)
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Alread_Open"));
+			insertLog(_T("Alread_Open"));
 		}
 		else
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Open_Fail"));
+			insertLog(_T("Open_Fail"));
 		}
 	}
 	else
@@ -383,6 +387,7 @@ void CBottleCapDlg::OnBnClickedCloseButton()
 		if (m_CameraManager.Close_Camera(m_iCameraIndex) == 0)
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Close_Success"));
+			insertLog(_T("Close_Success"));
 			if (bitmapinfo[m_iCameraIndex])
 			{
 				delete bitmapinfo[m_iCameraIndex];
@@ -414,12 +419,14 @@ void CBottleCapDlg::OnBnClickedConnectButton()
 		if (m_CameraManager.Connect_Camera(m_iCameraIndex, 0, 0, 1984, 1264, _T("Mono8")) == 0)    //BayerBG8   YUV422Packed  Mono8 , Mono16
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Connect_Success"));
+			insertLog(_T("Connect_Success"));
 			AllocImageBuf();
 			InitBitmap(m_iCameraIndex);
 		}
 		else
 		{
 			m_ctrlCamList.SetItemText(m_iListIndex, 2, _T("Connect_Fail"));
+			insertLog(_T("Connect_Fail"));
 		}
 	}
 	else
@@ -462,37 +469,35 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
 		m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
 		CV_8UC1, pImageBuf);
-	
+	cv::imwrite("test", image);
 	// 이미지 전처리
 	cv::resize(image, image, cv::Size(640, 480));
 
 
-	// 통신
-	if (!m_bConnected)
-	{
-		if (Connect(_T("10.10.21.110"), 9934))
-			AfxMessageBox(_T("서버에 연결되었습니다."));
-		else
-			return;
-	}
-	SendProtocol(Protocol::CHECK_RESULT);
-	if (SendImage(image))
-	{
-		AfxMessageBox(_T("전송 완료"));
-		CTime currentTime = CTime::GetCurrentTime();
-		CString strCurrentTime = currentTime.Format("%H:%M:%S");
+	//// 통신
+	//if (!m_bConnected)
+	//{
+	//	if (Connect(_T("10.10.21.110"), 9934))
+	//	{
+	//		insertLog(_T("Sever_Connect"));
+	//	}
+	//	else
+	//	{
+	//		return;
+	//	}
+	//}
+	//SendProtocol(Protocol::CHECK_RESULT);
+	//if (SendImage(image))
+	//{
+	//	AfxMessageBox(_T("전송 완료"));
+	//	insertLog(_T("Image_Send_Success"));
 
-
-		// 결과 저장
-		m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
-		m_ctrlLogList.SetItemText(m_LogIndex, 1, _T("No Cap"));
-		m_ctrlLogList.SetItemText(m_LogIndex, 2, _T("80 %"));
-		m_LogIndex++;
-	}
-	else
-	{
-		AfxMessageBox(_T("전송 실패"));
-	}
+	//	// 로깅
+	//}
+	//else
+	//{
+	//	insertLog(_T("Image_Send_Fail"));
+	//}
 }
 
 void CBottleCapDlg::OnBnClickedButton6()
@@ -594,7 +599,6 @@ void CBottleCapDlg::InitBitmap(int nCamIndex)
 }
 
 // TCP/IP
-
 bool CBottleCapDlg::Connect(CString serverIP, int port)
 {
 	if (!AfxSocketInit())
@@ -691,7 +695,15 @@ bool CBottleCapDlg::SendProtocol(uchar protocol)
 		{
 			return false;
 		}
-
 		return true;
 	}
+}
+
+void CBottleCapDlg::insertLog(CString log)
+{
+	CTime currentTime = CTime::GetCurrentTime();
+	CString strCurrentTime = currentTime.Format("%H:%M:%S");
+	m_ctrlLogList.InsertItem(m_LogIndex, strCurrentTime);
+	m_ctrlLogList.SetItemText(m_LogIndex, 1, log);
+	m_LogIndex++;
 }
