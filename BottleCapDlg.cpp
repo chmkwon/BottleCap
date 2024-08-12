@@ -469,7 +469,7 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
 		m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
 		CV_8UC1, pImageBuf);
-	cv::imwrite("test", image);
+	cv::imwrite("test.jpg", image);
 	// 이미지 전처리
 	cv::resize(image, image, cv::Size(640, 480));
 
