@@ -23,7 +23,9 @@
 #define IDC_CLOSE_BUTTON                1016
 #define IDC_GRAB_BUTTON                 1017
 #define IDC_BUTTON6                     1018
+#define IDC_PREV_BUTTON                 1018
 #define IDC_BUTTON7                     1019
+#define IDC_SEND_BUTTON                 1019
 #define IDC_LOG_LIST                    1020
 #define CAM_INFO                        1021
 

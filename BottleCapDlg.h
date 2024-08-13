@@ -41,6 +41,8 @@ public:
 	bool m_bConnected;
 	bool m_bGrabDisplay;
 	bool m_bSelectCamera;
+	bool m_bSendImage;
+	cv::Mat m_roiImage;
 	bool bStopThread[CAM_NUM];
 	bool bLiveFlag[CAM_NUM];
 
@@ -82,9 +84,9 @@ public:
 	afx_msg void OnBnClickedCloseButton();
 	afx_msg void OnBnClickedConnectButton();
 	afx_msg void OnBnClickedGrabButton();
-	afx_msg void OnBnClickedButton6();
-	afx_msg void OnBnClickedButton7();
 	afx_msg void OnBnClickedCheckCam();
+	afx_msg void OnBnClickedSendButton();
+	afx_msg void OnBnClickedPrevButton();
 
 	// TCP/IP
 	bool Connect(CString serverIP, int port);

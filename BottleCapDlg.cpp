@@ -150,6 +150,8 @@ CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 		m_nCamIndexBuf[i] = i;
 	}
 	m_bGrabDisplay = false;
+	m_bConnected = false;
+	m_bSendImage = false;
 	m_LogIndex = 0;
 	m_iCameraIndex = -1;
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -172,9 +174,9 @@ BEGIN_MESSAGE_MAP(CBottleCapDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CLOSE_BUTTON, &CBottleCapDlg::OnBnClickedCloseButton)
 	ON_BN_CLICKED(IDC_CONNECT_BUTTON, &CBottleCapDlg::OnBnClickedConnectButton)
 	ON_BN_CLICKED(IDC_GRAB_BUTTON, &CBottleCapDlg::OnBnClickedGrabButton)
-	ON_BN_CLICKED(IDC_BUTTON6, &CBottleCapDlg::OnBnClickedButton6)
-	ON_BN_CLICKED(IDC_BUTTON7, &CBottleCapDlg::OnBnClickedButton7)
 	ON_BN_CLICKED(IDC_CHECK_CAM, &CBottleCapDlg::OnBnClickedCheckCam)
+	ON_BN_CLICKED(IDC_SEND_BUTTON, &CBottleCapDlg::OnBnClickedSendButton)
+	ON_BN_CLICKED(IDC_PREV_BUTTON, &CBottleCapDlg::OnBnClickedPrevButton)
 END_MESSAGE_MAP()
 
 
@@ -480,6 +482,9 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	// 뚜껑 부분 ROI (5분의 1)
 	cv::Rect capRoi(fullRoi.x, fullRoi.y, fullRoi.width, fullRoi.height / 5);
 
+	// 뚜껑 부분 ROI 추출
+	m_roiImage = image(capRoi);
+
 	// ROI 그리기
 	cv::rectangle(temp, fullRoi, cv::Scalar(255, 0, 0), 2);
 	cv::rectangle(temp, capRoi, cv::Scalar(0, 0, 255), 2);
@@ -495,7 +500,7 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 
 	BITMAPINFO updatedBitmapInfo = *bitmapinfo[m_iCameraIndex];
 	updatedBitmapInfo.bmiHeader.biWidth = temp.cols;
-	updatedBitmapInfo.bmiHeader.biHeight = temp.rows;
+	updatedBitmapInfo.bmiHeader.biHeight = temp.rows; 
 	updatedBitmapInfo.bmiHeader.biBitCount = 24;
 
 	SetStretchBltMode(pDC->GetSafeHdc(), COLORONCOLOR);
@@ -503,43 +508,53 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 		0, 0, temp.cols, temp.rows,
 		processedImageBuf, &updatedBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
 	pWnd->ReleaseDC(pDC);
-
-}
-//// 통신
-//if (!m_bConnected)
-//{
-//	if (Connect(_T("10.10.21.110"), 9934))
-//	{
-//		insertLog(_T("Sever_Connect"));
-//	}
-//	else
-//	{
-//		return;
-//	}
-//}
-//SendProtocol(Protocol::CHECK_RESULT);
-//if (SendImage(image))
-//{
-//	AfxMessageBox(_T("전송 완료"));
-//	insertLog(_T("Image_Send_Success"));
-
-//	// 로깅
-//}
-//else
-//{
-//	insertLog(_T("Image_Send_Fail"));
-//}
-
-void CBottleCapDlg::OnBnClickedButton6()
-{
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	// PrevStat
+	
+	// 전송버튼 초기화
+	m_bSendImage = false;
 }
 
-void CBottleCapDlg::OnBnClickedButton7()
+void CBottleCapDlg::OnBnClickedSendButton()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	// PrevDefective
+	//// 통신
+	if (m_bSendImage == true)
+	{
+		insertLog(_T("Already_Send"));
+		return;
+	}
+	if (m_roiImage.empty())
+	{
+		AfxMessageBox(_T("캡쳐부터 해주세요!!"));
+		return;
+	}
+	if (!m_bConnected)
+	{
+		if (Connect(_T("10.10.21.110"), 9934))
+		{
+			insertLog(_T("Sever_Connect"));
+		}
+		else
+		{
+			insertLog(_T("Connect_Fail"));
+			return;
+		}
+	}
+	SendProtocol(Protocol::CHECK_RESULT);
+	if (SendImage(m_roiImage))
+	{
+		AfxMessageBox(_T("전송 완료"));
+		insertLog(_T("Image_Send_Success"));
+		m_bSendImage = true;
+	}
+	else
+	{
+		insertLog(_T("Image_Send_Fail"));
+	}
+}
+
+void CBottleCapDlg::OnBnClickedPrevButton()
+{
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
 }
 
 void CBottleCapDlg::OnBnClickedCheckCam()
