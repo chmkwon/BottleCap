@@ -77,7 +77,7 @@
     <Image Include="res\icon1.ico">
       <Filter>리소스 파일</Filter>
     </Image>
-    <Image Include="..\..\..\Desktop\find.ico">
+    <Image Include="res\find.ico">
       <Filter>리소스 파일</Filter>
     </Image>
   </ItemGroup>

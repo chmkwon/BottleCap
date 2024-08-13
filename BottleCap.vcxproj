@@ -216,8 +216,8 @@
     <None Include="res\BottleCap.rc2" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="..\..\..\Desktop\find.ico" />
     <Image Include="res\BottleCap.ico" />
+    <Image Include="res\find.ico" />
     <Image Include="res\icon1.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
