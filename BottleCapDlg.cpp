@@ -453,8 +453,11 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 {
 	CWnd* pWnd = GetDlgItem(IDC_GRABBED_DISPLAY);
 
-	// 원본 이미지를 Mat 객체로 변환
-	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex], m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex], CV_8UC1, pImageBuf);
+	cv::Mat image(m_CameraManager.m_iCM_Height[m_iCameraIndex],
+		m_CameraManager.m_iCM_reSizeWidth[m_iCameraIndex],
+		CV_8UC1);
+
+	memcpy(image.data, pImageBuf, image.total() * image.elemSize());
 
 	// 윤곽선 검출
 	cv::Mat temp;
@@ -466,51 +469,74 @@ void CBottleCapDlg::DisplayGrab(void* pImageBuf)
 	std::vector<std::vector<cv::Point>> contours;
 	cv::findContours(gray, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-	// ROI 계산
-	int minX = image.cols, minY = image.rows, maxX = 0, maxY = 0;
-	for (const auto& contour : contours) {
-		for (const auto& point : contour) {
-			minX = std::min(minX, point.x);
-			minY = std::min(minY, point.y);
-			maxX = std::max(maxX, point.x);
-			maxY = std::max(maxY, point.y);
+	if (!contours.empty())
+	{
+		// ROI 계산
+		int minX = image.cols, minY = image.rows, maxX = 0, maxY = 0;
+		for (const auto& contour : contours)
+		{
+			for (const auto& point : contour)
+			{
+				minX = std::min(minX, point.x);
+				minY = std::min(minY, point.y);
+				maxX = std::max(maxX, point.x);
+				maxY = std::max(maxY, point.y);
+			}
 		}
+
+		// 병 전체 ROI
+		cv::Rect fullRoi(minX, minY, maxX - minX, maxY - minY);
+		// 뚜껑 부분 ROI (5분의 1)
+		cv::Rect capRoi(fullRoi.x, fullRoi.y, fullRoi.width, fullRoi.height / 5);
+
+		// 뚜껑 부분 ROI 추출
+		m_roiImage = image(capRoi);
+
+		// ROI 그리기
+		cv::rectangle(temp, fullRoi, cv::Scalar(255, 0, 0), 2);
+		cv::rectangle(temp, capRoi, cv::Scalar(0, 0, 255), 2);
+
+		std::vector<uchar> buf;
+		cv::imencode(".bmp", temp, buf);
+		BYTE* roiImageBuf = buf.data();
+
+		// 캡처 컨트롤에 표시
+		CDC* pDC = pWnd->GetDC();
+		CRect rect;
+		pWnd->GetClientRect(&rect);
+
+		BITMAPINFO updatedBitmapInfo = *bitmapinfo[m_iCameraIndex];
+		updatedBitmapInfo.bmiHeader.biWidth = temp.cols;
+		updatedBitmapInfo.bmiHeader.biHeight = temp.rows;
+		updatedBitmapInfo.bmiHeader.biBitCount = 24;
+
+		SetStretchBltMode(pDC->GetSafeHdc(), COLORONCOLOR);
+		StretchDIBits(pDC->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(),
+			0, 0, temp.cols, temp.rows,
+			roiImageBuf, &updatedBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
+		pWnd->ReleaseDC(pDC);
+
+		// 전송버튼 초기화
+		m_bSendImage = false;
 	}
+	else
+	{
+		// 캡처 컨트롤에 표시
+		CDC* pDC = pWnd->GetDC();
+		CRect rect;
+		pWnd->GetClientRect(&rect);
 
-	// 병 전체 ROI
-	cv::Rect fullRoi(minX, minY, maxX - minX, maxY - minY);
-	// 뚜껑 부분 ROI (5분의 1)
-	cv::Rect capRoi(fullRoi.x, fullRoi.y, fullRoi.width, fullRoi.height / 5);
+		BITMAPINFO updatedBitmapInfo = *bitmapinfo[m_iCameraIndex];
+		updatedBitmapInfo.bmiHeader.biWidth = temp.cols;
+		updatedBitmapInfo.bmiHeader.biHeight = temp.rows;
+		updatedBitmapInfo.bmiHeader.biBitCount = 24;
 
-	// 뚜껑 부분 ROI 추출
-	m_roiImage = image(capRoi);
-
-	// ROI 그리기
-	cv::rectangle(temp, fullRoi, cv::Scalar(255, 0, 0), 2);
-	cv::rectangle(temp, capRoi, cv::Scalar(0, 0, 255), 2);
-
-	std::vector<uchar> buf;
-	cv::imencode(".bmp", temp, buf);
-	BYTE* processedImageBuf = buf.data();
-
-	// 캡처 컨트롤에 표시
-	CDC* pDC = pWnd->GetDC();
-	CRect rect;
-	pWnd->GetClientRect(&rect);
-
-	BITMAPINFO updatedBitmapInfo = *bitmapinfo[m_iCameraIndex];
-	updatedBitmapInfo.bmiHeader.biWidth = temp.cols;
-	updatedBitmapInfo.bmiHeader.biHeight = temp.rows; 
-	updatedBitmapInfo.bmiHeader.biBitCount = 24;
-
-	SetStretchBltMode(pDC->GetSafeHdc(), COLORONCOLOR);
-	StretchDIBits(pDC->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(),
-		0, 0, temp.cols, temp.rows,
-		processedImageBuf, &updatedBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
-	pWnd->ReleaseDC(pDC);
-	
-	// 전송버튼 초기화
-	m_bSendImage = false;
+		SetStretchBltMode(pDC->GetSafeHdc(), COLORONCOLOR);
+		StretchDIBits(pDC->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(),
+			0, 0, temp.cols, temp.rows,
+			pImageBuf, &updatedBitmapInfo, DIB_RGB_COLORS, SRCCOPY);
+		pWnd->ReleaseDC(pDC);
+	}
 }
 
 void CBottleCapDlg::OnBnClickedSendButton()
@@ -545,6 +571,11 @@ void CBottleCapDlg::OnBnClickedSendButton()
 		AfxMessageBox(_T("전송 완료"));
 		insertLog(_T("Image_Send_Success"));
 		m_bSendImage = true;
+		CString temp;
+		RecvResponse(temp);
+		insertLog(temp);
+
+		Disconnect();
 	}
 	else
 	{
