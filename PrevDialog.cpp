@@ -187,15 +187,46 @@ void PrevDialog::OnBnClickedGetdataButton2()
 {
 	if (!m_bConnected)
 	{
-		if (!Connect(_T("10.10.21.110"), 9934))
-		{
-			return;
-		}
+		CTime startTime, endTime;
+		int startYear, startMonth, startDay;
+		int endYear, endMonth, endDay;
 
-		SendProtocol(Protocol::CHAR_DATA);
-		CString temp;
-		RecvResponse(temp);
-		Disconnect();
+		// 시작 시간 가져오기
+		m_startTimePick.GetTime(startTime);
+		startYear = startTime.GetYear();
+		startMonth = startTime.GetMonth();
+		startDay = startTime.GetDay();
+
+		// 종료 시간 가져오기
+		m_endTimePick.GetTime(endTime);
+		endYear = endTime.GetYear();
+		endMonth = endTime.GetMonth();
+		endDay = endTime.GetDay();
+
+		CString strStart;
+		strStart.Format(_T("%d%02d%02d"), startYear, startMonth, startDay);
+
+		CString strEnd;
+		strEnd.Format(_T("%d%02d%02d"), endYear, endMonth, endDay);
+
+		// 조회 조건 가져오기
+		// 0전부 1yes 2no
+		CString strMod;	
+		strMod.Format(_T("%d"), m_SelectBox.GetCurSel());
+
+		CString strSendMsg;
+		strSendMsg.Format(_T("%s;%s;%s"), strMod, strStart, strEnd);
+		
+		AfxMessageBox(strSendMsg);
+		//if (!Connect(_T("10.10.21.110"), 9934))
+		//{
+		//	return;
+		//}
+
+		//SendProtocol(Protocol::CHAR_DATA);
+		//CString temp;
+		//RecvResponse(temp);
+		//Disconnect();
 
 		m_nNoData = 34;
 		m_nYesData = 55;
