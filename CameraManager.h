@@ -1,7 +1,5 @@
 #pragma once
 
-#include "CameraManager.h"
-
 #include <pylon/PylonIncludes.h>
 #include <pylon/PylonGUI.h>
 #include <pylon/gige/BaslerGigECamera.h>

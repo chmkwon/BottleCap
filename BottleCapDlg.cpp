@@ -154,7 +154,6 @@ CBottleCapDlg::CBottleCapDlg(CWnd* pParent /*=nullptr*/)
 	m_bSendImage = false;
 	m_LogIndex = 0;
 	m_iCameraIndex = -1;
-	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
 void CBottleCapDlg::DoDataExchange(CDataExchange* pDX)
@@ -586,6 +585,10 @@ void CBottleCapDlg::OnBnClickedSendButton()
 void CBottleCapDlg::OnBnClickedPrevButton()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	PrevDialog dlg;
+	dlg.DoModal();
+
+	
 }
 
 void CBottleCapDlg::OnBnClickedCheckCam()

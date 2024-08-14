@@ -4,6 +4,7 @@
 
 #pragma once
 #include "CameraManager.h"
+#include "PrevDialog.h"
 #include "Protocol.h"
 #include "afxcmn.h"
 #include "afxwin.h"
@@ -23,7 +24,6 @@ public:
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 지원입니다.
-
 
 // 구현입니다.
 public:
@@ -94,7 +94,6 @@ public:
 	bool SendProtocol(uchar protocol);
 	bool SendImage(cv::Mat& image);
 	bool RecvResponse(CString& response);
-
 private:
 	// 로그
 	void CBottleCapDlg::insertLog(CString log);
