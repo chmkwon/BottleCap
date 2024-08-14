@@ -6,6 +6,7 @@
 #include "afxdialogex.h"
 #include "PrevDialog.h"
 #include "Protocol.h"
+#include <sstream>
 
 
 // PrevDialog 대화 상자
@@ -57,8 +58,8 @@ BOOL PrevDialog::OnInitDialog()
 	m_startTimePick.SetTime(&today);
 	m_endTimePick.SetTime(&today);
 
-	m_PrevLogList.InsertColumn(0, _T("Time"), LVCFMT_CENTER, 103, -1);
-	m_PrevLogList.InsertColumn(1, _T("Result"), LVCFMT_CENTER, 229, -1);
+	m_PrevLogList.InsertColumn(0, _T("Result"), LVCFMT_CENTER, 103, -1);
+	m_PrevLogList.InsertColumn(1, _T("Time"), LVCFMT_CENTER, 229, -1);
 	m_PrevLogList.SetExtendedStyle(
 		LVS_EX_FULLROWSELECT |		// 아이템 선택시 전체행 선택
 		LVS_EX_GRIDLINES |			// 그리드라인
@@ -147,12 +148,9 @@ bool PrevDialog::RecvResponse(CString& response)
 
 int PrevDialog::RecvInt()
 {
-	CString response;
-	if (RecvResponse(response))
-	{
-		return _ttoi(response);
-	}
-	return 0;
+	int result;
+	m_socket.Receive(&result, sizeof(result), 0);
+	return result;
 }
 
 bool PrevDialog::Disconnect()
@@ -194,7 +192,7 @@ bool PrevDialog::SendCString(const CString& message)
 		CT2CA pszConvertedAnsiString(message);
 		const char* pszAnsiString = pszConvertedAnsiString;
 
-		int totalLength = strlen(pszAnsiString) + 1; 
+		int totalLength = strlen(pszAnsiString) + 1;
 
 		int sent = m_socket.Send(pszAnsiString, totalLength);
 		if (sent != totalLength)
@@ -243,11 +241,8 @@ void PrevDialog::OnBnClickedGetdataButton2()
 
 		// 조회 조건 가져오기
 		// 0전부 1yes 2no
-		CString strMod;	
+		CString strMod;
 		strMod.Format(_T("%d"), m_SelectBox.GetCurSel());
-
-		CString strSendMsg;
-		strSendMsg.Format(_T("%s;%s;%s"), strMod, strStart, strEnd);
 
 		if (!Connect(_T("10.10.21.110"), 9934))
 		{
@@ -256,37 +251,75 @@ void PrevDialog::OnBnClickedGetdataButton2()
 
 		SendProtocol(Protocol::CHAR_DATA);
 
+		CString strSendMsg;
+		strSendMsg.Format(_T("%s;%s;%s"), strMod, strStart, strEnd);
+
+		CT2CA pszConvertedAnsiString(strSendMsg);
+		const char* buffer = pszConvertedAnsiString;
+		int length = strlen(buffer);
+
+		// 메시지 내용 전송
+		int bytesSent = m_socket.Send(buffer, length);
+
 		int count;
 		count = RecvInt();
 
 		m_nNoData = 0;
 		m_nYesData = 0;
-		
-		for (int i = 0; i < count; i++)
+		m_PrevLogList.DeleteAllItems();
+
+		CString strTemp;
+		RecvResponse(strTemp);
+
+		std::string recvData(CT2A(strTemp.GetString()));
+
+		std::stringstream ss(recvData);
+		std::string token;
+		bool isResult = true;
+		int index = 0;
+
+		while (std::getline(ss, token, ';'))
 		{
-			CString strTemp;
-			RecvResponse(strTemp);
-
-			int p = strTemp.Find(';');
-
-			CString strResult = strTemp.Left(p);
-			CString strTime = strTemp.Mid(p + 1);
-
-			if (strResult == _T("0"))
+			if (isResult)
 			{
-				// no cap
-				m_PrevLogList.InsertItem(i, strTime);
-				m_PrevLogList.SetItemText(i, 1, _T("NoCap"));
-				m_nNoData++;
+				if (token == "0")
+				{
+					m_PrevLogList.InsertItem(index, _T("NoCap"));
+					m_nNoData++;
+				}
+				else
+				{
+					m_PrevLogList.InsertItem(index, _T("YesCap"));
+					m_nYesData++;
+				}
 			}
 			else
 			{
-				// yes cap
-				m_PrevLogList.InsertItem(i, strTime);
-				m_PrevLogList.SetItemText(i, 1, _T("YesCap"));
-				m_nYesData++;
+				m_PrevLogList.SetItemText(index, 1, CString(token.c_str()));
+				index++;
 			}
+
+			isResult = !isResult;
+
 		}
+		//CString strResult = strTemp.Left(p);
+		//CString strTime = strTemp.Mid(p + 1);
+
+		//if (strResult == _T("0"))
+		//{
+		//	// no cap
+		//	m_PrevLogList.InsertItem(i, strTime);
+		//	m_PrevLogList.SetItemText(i, 1, _T("NoCap"));
+		//	m_nNoData++;
+		//}
+		//else
+		//{
+		//	// yes cap
+		//	m_PrevLogList.InsertItem(i, _T("0"));
+		//	m_PrevLogList.SetItemText(i, 1, _T("YesCap"));
+		//	m_nYesData++;
+		//}
+
 
 		Disconnect();
 
