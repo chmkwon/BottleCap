@@ -11,7 +11,7 @@
 #define IDP_SOCKETS_INIT_FAILED         103
 #define IDC_END_DATETIME                104
 #define IDD_PrevDialog                  104
-#define IDI_ICON1                       147
+#define IDI_SEARCH_ICON                 147
 #define IDC_CHECK_CAM                   1000
 #define IDC_CAMERA_LIST                 1008
 #define CAMERA_STATS                    1009
@@ -35,6 +35,7 @@
 #define IDC_WEEK_BUTTON                 1029
 #define IDC_MONTH_BUTTON                1030
 #define IDC_MONTH_BUTTON2               1031
+#define IDC_GETDATA_BUTTON2             1031
 #define IDC_Chart                       1032
 #define IDC_PREV_LOG_LIST               1033
 
