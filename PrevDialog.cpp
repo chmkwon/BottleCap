@@ -145,6 +145,16 @@ bool PrevDialog::RecvResponse(CString& response)
 	}
 }
 
+int PrevDialog::RecvInt()
+{
+	CString response;
+	if (RecvResponse(response))
+	{
+		return _ttoi(response);
+	}
+	return 0;
+}
+
 bool PrevDialog::Disconnect()
 {
 	if (m_bConnected)
@@ -166,6 +176,28 @@ bool PrevDialog::SendProtocol(unsigned char protocol)
 	{
 		int sent = m_socket.Send(&protocol, sizeof(unsigned char));
 		if (sent != sizeof(unsigned char))
+		{
+			return false;
+		}
+		return true;
+	}
+}
+
+bool PrevDialog::SendCString(const CString& message)
+{
+	if (!m_bConnected)
+	{
+		return false;
+	}
+	else
+	{
+		CT2CA pszConvertedAnsiString(message);
+		const char* pszAnsiString = pszConvertedAnsiString;
+
+		int totalLength = strlen(pszAnsiString) + 1; 
+
+		int sent = m_socket.Send(pszAnsiString, totalLength);
+		if (sent != totalLength)
 		{
 			return false;
 		}
@@ -216,20 +248,47 @@ void PrevDialog::OnBnClickedGetdataButton2()
 
 		CString strSendMsg;
 		strSendMsg.Format(_T("%s;%s;%s"), strMod, strStart, strEnd);
+
+		if (!Connect(_T("10.10.21.110"), 9934))
+		{
+			return;
+		}
+
+		SendProtocol(Protocol::CHAR_DATA);
+
+		int count;
+		count = RecvInt();
+
+		m_nNoData = 0;
+		m_nYesData = 0;
 		
-		AfxMessageBox(strSendMsg);
-		//if (!Connect(_T("10.10.21.110"), 9934))
-		//{
-		//	return;
-		//}
+		for (int i = 0; i < count; i++)
+		{
+			CString strTemp;
+			RecvResponse(strTemp);
 
-		//SendProtocol(Protocol::CHAR_DATA);
-		//CString temp;
-		//RecvResponse(temp);
-		//Disconnect();
+			int p = strTemp.Find(';');
 
-		m_nNoData = 34;
-		m_nYesData = 55;
+			CString strResult = strTemp.Left(p);
+			CString strTime = strTemp.Mid(p + 1);
+
+			if (strResult == _T("0"))
+			{
+				// no cap
+				m_PrevLogList.InsertItem(i, strTime);
+				m_PrevLogList.SetItemText(i, 1, _T("NoCap"));
+				m_nNoData++;
+			}
+			else
+			{
+				// yes cap
+				m_PrevLogList.InsertItem(i, strTime);
+				m_PrevLogList.SetItemText(i, 1, _T("YesCap"));
+				m_nYesData++;
+			}
+		}
+
+		Disconnect();
 
 		CWnd* pWnd = GetDlgItem(IDC_Chart);
 		if (pWnd)

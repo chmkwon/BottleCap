@@ -42,6 +42,8 @@ public:
 	bool Disconnect();
 	bool SendProtocol(unsigned char protocol);
 	bool RecvResponse(CString& response);
+	bool PrevDialog::SendCString(const CString& message);
+	int RecvInt();
 	afx_msg void OnBnClickedGetdataButton2();
 
 	// 차트
